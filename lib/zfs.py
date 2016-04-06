@@ -6,76 +6,84 @@ from subprocess import check_output
 
 from storagepool import StoragePool
 
+
 class ZfsPool(StoragePool):
-    '''The class for a zfs storage pool.'''
+    '''The class to create a zfs storage pool.'''
+
+    # The devices should be a list of strings.
+    devices = []
+    # The pool name must begin with a letter, and can only contain alphanumeric
+    # characters as well as underscore ("_"), dash ("-"), period ("."), colon
+    # (":"), and space (" "). The pool names "mirror", "raidz", "spare" and
+    # "log" are reserved, as are names beginning with  the  pattern  "c[0-9]".
+    pool_name = 'zfs-storage-pool'
+    # The mount point has to be an abolute path.
+    mountpoint = ''
 
     def __init__(self, reference):
-        '''Return an existing ZfsPool object by string reference name.'''
-        self.reference = reference
-
-        cmd = 'sudo zfs get -H mountpoint {0}'.format(self.reference)
-        output = check_output(split(cmd))
-        if output:
-            # NAME PROPERTY VALUE SOURCE
-            self.mountPoint = output.split()[2]
-
+        '''Return an ZfsPool object using a specified pool name.'''
+        self.pool_name = reference
 
     @classmethod
-    def create(cls, mountPoint, devices=[], force=False):
+    def create(cls, mount_point, devices, force=False):
         '''Return a new StoragePool object of devices at the mount point.'''
-        self.reference = 'zfs-pool'
+        pool = cls('zfs-storage-pool')
         # The mount point must be an absolute path.
-        self.mountPoint = os.path.abspath(mountPoint)
-        self.devices = devices
-        if len(self.devices) > 2:
-            # There are enough devices, so create a raidz pool.
-            cmd = 'sudo zpool create -m {0} {1} raidz '.format(self.mountPoint,
-                                                               self.reference)
-            cmd += ' '.join(self.devices)
-            # Create the zfs pool with raidz.
-            check_call(split(cmd))
-        else:
-            # Create a normal zfs pool.
-            cmd = 'sudo zpool create -m {0} {1}'.format(self.mountPoint,
-                                                        self.reference)
-            cmd += ' '.join(self.devices)
-            # Create a normal zfs pool.
-            check_call(split(cmd))
+        pool.mountpoint = os.path.abspath(mount_point)
+        pool.devices = devices
 
+        # The command that creates a zfs disk pool.
+        cmd = 'sudo zpool create -m {0} {1} '.format(pool.mountpoint,
+                                                     pool.pool_name)
+        cmd += ' '.join(pool.devices)
+        print(cmd)
+        # Run the command.
+        output = check_output(split(cmd))
+        return pool
 
     @property
     def size(self):
         '''Return a string tuple of used and total size of the storage pool.'''
         # Create a command to get the details of the storage pool (no header).
-        cmd = 'sudo zfs list -H ' + self.reference
+        cmd = 'sudo zfs list -H ' + self.pool_name
         output = check_output(split(cmd))
         if output:
-            # NAME USED AVAIL REFER MOUNTPOINT
+            # NAME           USED  AVAIL  REFER  MOUNTPOINT
+            # mbruzek-pool  62.5K   688M    19K  /mbruzek-pool
             self.used = str(line.split()[1])
             self.total = str(line.split()[2])
         # Return a tuple of used and available for this pool.
         return self.used, self.total
 
-
-    def add(self, device):
+    def add(self, devices):
         '''Add a device to the zfs storage pool.'''
-        if self.reference:
-            cmd = 'sudo zpool add {0} {1}'.format(self.reference, device)
+
+        # The self.mount_point will only exist if we created the zfs pool.
+        if self.mountpoint:
+            # The command that adds a device to a zfs pool.
+            cmd = 'sudo zpool add {0} '.format(self.pool_name)
+            cmd += ' '.join(devices)
+            print(cmd)
             check_call(split(cmd))
         else:
-            print('No pool name set.')
-
-
-    def mount(self, mountPoint):
-        '''Mount the zfs pool as a file system at the mount point.'''
-        # Create the command to mount the zfs pool at a specific mount point.
-        if self.reference:
-            # Create the command to mount the zfs pool at a specific mount point.
-            cmd = 'zfs set mountpoint={0} {1}'.format(mountPoint, self.reference)
+            # The command that creates a zfs pool without a mount point.
+            cmd = 'sudo zpool create {0} '.format(self.pool_name)
+            cmd += ' '.join(devices)
+            print(cmd)
             check_call(split(cmd))
+            self.mountpoint = self.mount_point(self.pool_name)
+        # Append the devices to the device list.
+        if self.devices:
+            self.devices.append(devices)
+        else:
+            self.devices = devices
 
-
-    def umount(self, mountPoint, force=False):
-        '''Detatch the file system from the file hierarchy.'''
-        cmd = 'zfs unmount {0} {1}'.format('-f' if force else '', mountPoint)
-        check_call(split(cmd))
+    def mount_point(self, name):
+        '''Return the mount point for the zfs pool name.'''
+        # The command to get the mount_point property from a zfs pool.
+        cmd = 'sudo zfs get -H mountpoint {0}'.format(name)
+        output = check_output(split(cmd))
+        if output:
+            # NAME          PROPERTY    VALUE          SOURCE
+            # mbruzek-pool  mountpoint  /mbruzek-pool  default
+            return output.split()[2]

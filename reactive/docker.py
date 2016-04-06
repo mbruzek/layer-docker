@@ -102,4 +102,5 @@ def handle_block_storage_pools():
         pkg_list = ['zfsutils-linux']
         apt_install(pkg_list, fatal=True)
 
-        ZfsPool.create(mount_path, devices)
+        zfs = ZfsPool('juju-zfs-pool')
+        zfs.add(devices)
