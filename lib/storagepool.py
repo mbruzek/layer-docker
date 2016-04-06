@@ -11,7 +11,7 @@ class StoragePool(object):
         '''Return a tuple used and total size.'''
         return self.used, self.total
 
-    dev add(self, device):
+    def add(self, device):
             '''Add a device to a storage pool.'''
             pass
 
@@ -20,10 +20,10 @@ class StoragePool(object):
         '''Return a new StoragePool object of devices at the mount point.'''
         pass
 
-    dev mount(self, device, mountPoint):
+    def mount(self, mountPoint):
         '''Mount a filesystem.'''
         pass
 
-    dev umount(self, device='', mountPoint='', force=False):
+    def umount(self, mountPoint, force=False):
         '''Detatch the file system from the file hierarchy.'''
         pass
